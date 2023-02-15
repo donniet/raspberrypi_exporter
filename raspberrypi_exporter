@@ -57,12 +57,14 @@ for VOLT_COMPONENT in "${VOLT_COMPONENTS[@]}"; do
   echo "${PREFIX}voltage{component=\"${VOLT_COMPONENT}\"} ${VOLTS}" >> "${TMP_FILE}"
 done
 
+GPU_MEM=128
+
 # get memory split of CPU vs GPU
 {
   echo "# HELP ${PREFIX}memory Memory split of CPU and GPU in bytes.";
   echo "# TYPE ${PREFIX}memory gauge";
 } >> "${TMP_FILE}"
-declare -a MEM_COMPONENTS=("arm" "gpu")
+declare -a MEM_COMPONENTS=("gpu")
 for MEM_COMPONENT in "${MEM_COMPONENTS[@]}"; do
   unset MEM
 
@@ -71,7 +73,14 @@ for MEM_COMPONENT in "${MEM_COMPONENTS[@]}"; do
   MEM="$(( MEM * 1024 * 1024 ))"
 
   echo "${PREFIX}memory{component=\"${MEM_COMPONENT}\"} ${MEM}" >> "${TMP_FILE}"
+  GPU_MEM=${MEM}
 done
+
+MEM="$($VCGEN get_config total_mem | cut -d '=' -f 2)" || true
+MEM="${MEM:=0}"
+MEM="$(( (MEM * 1024 * 1024) - GPU_MEM ))"
+
+echo "${PREFIX}memory{component=\"arm\"} ${MEM}" >> "${TMP_FILE}"
 
 # write metrics file
 mv "${TMP_FILE}" "${METRICS_FILE}"
